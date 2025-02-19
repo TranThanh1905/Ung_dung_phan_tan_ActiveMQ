@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #chat-container {
+            width: 500px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h3 {
+            text-align: center;
+            color: #333;
+        }
+        #message-container {
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 8px;
+            background: #fafafa;
+            margin-bottom: 12px;
+        }
+        #message-form {
+            display: flex;
+            gap: 8px;
+        }
+        #name-input, #message-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        button {
+            padding: 10px 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <h3>Chat Room</h3>
+    <div id="message-container"></div>
+    <form id="message-form">
+        <input type="text" id="name-input" placeholder="Your name" required>
+        <input type="text" id="message-input" placeholder="Type a message..." required>
+        <button type="submit">Send</button>
+    </form>
+</div>
+
+<script>
+    let stompClient = null;
+
+    function connect() {
+        const socket = new SockJS('http://localhost:8080/ws');
+        stompClient = Stomp.over(socket);
+
+
+        stompClient.connect({}, function (frame) {
+            console.log('Connected: ' + frame);
+            stompClient.subscribe('/topic/messages', function (message) {
+                showMessage(JSON.parse(message.body));
+            });
+        }, function (error) {
+            console.error('Disconnected: ' + error);
+            setTimeout(connect, 5000);
+        });
+    }
+
+    function showMessage(message) {
+        const messageContainer = document.getElementById('message-container');
+        const messageElement = document.createElement('div');
+        messageElement.innerHTML = `<strong>${message.sender}</strong> (${message.timestamp}): ${message.content}`;
+        messageElement.style.padding = "8px";
+        messageElement.style.borderBottom = "1px solid #ddd";
+        messageContainer.appendChild(messageElement);
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+    }
+
+    document.getElementById('message-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const nameInput = document.getElementById('name-input');
+        const messageInput = document.getElementById('message-input');
+
+        if (stompClient && messageInput.value.trim()) {
+            const chatMessage = {
+                sender: nameInput.value,
+                content: messageInput.value,
+                timestamp: new Date().toISOString()
+            };
+            stompClient.send("/app/chat", {}, JSON.stringify(chatMessage));
+            messageInput.value = '';
+            messageInput.focus();
+        }
+    });
+
+    connect();
+</script>
+
+</body>
+</html>
